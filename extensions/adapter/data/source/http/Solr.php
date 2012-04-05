@@ -3,29 +3,21 @@
 namespace li3_solr\extensions\adapter\data\source\http;
 
 use lithium\core\ConfigException;
+use lithium\core\NetworkException;
 use lithium\util\String;
 use lithium\util\Inflector;
-use li3_solr\vendors\solarium\library\Solarium\Autoloader;
+use Solarium_Client;
 
 class Solr extends \lithium\data\source\Http {
 
 	/**
-	 * Increment value of current result set loop
-	 * used by `result` to handle rows of json responses.
-	 *
-	 * @var string
+	 * Going to store Solarium class here
+	 * @var object
 	 */
-	protected $_iterator = 0;
+	public $connection = null;
 
 	/**
-	 * True if Database exists.
-	 *
-	 * @var boolean
-	 */
-	protected $_db = false;
-
-	/**
-	 * Classes used by `CouchDb`.
+	 * Classes used by `Solr`.
 	 *
 	 * @var array
 	 */
@@ -51,6 +43,175 @@ class Solr extends \lithium\data\source\Http {
 		$adapter['adapteroptions'] = $config + $defaults;
 
 		parent::__construct($adapter);
+
+	}
+
+	public function connect() {
+
+		$this->_isConnected = false;
+
+		try {
+
+			$this->connection = new Solarium_Client($this->_config);
+			$this->_isConnected = true;
+
+		} catch(SolrException $e) {
+
+			throw new NetworkException('Could not connect to the database.', 503, $e);
+
+		}
+
+		return $this->_isConnected;
+
+	}
+
+	/**
+	 * Ensures that the server connection is closed and resources are freed when the adapter
+	 * instance is destroyed.
+	 *
+	 * @return void
+	 */
+	public function __destruct() {
+		if (!$this->_isConnected) {
+			return;
+		}
+		$this->disconnect();
+		$this->_db = false;
+		unset($this->connection);
+	}
+
+	/**
+	 * Magic for passing methods to http service.
+	 *
+	 * @param string $method
+	 * @param array $params
+	 * @return void
+	 */
+	public function __call($method, $params = array()) {
+		list($path, $data, $options) = ($params + array('/', array(), array()));
+		return json_decode($this->connection->{$method}($path, $data, $options));
+	}
+
+	/**
+	 * Returns an array of object types accessible through this database.
+	 *
+	 * @param object $class
+	 * @return void
+	 */
+	public function sources($class = null) {
+	}
+
+	/**
+	 * Create new document.
+	 *
+	 * @param string $query
+	 * @param array $options
+	 * @return boolean
+	 * @filter
+	 */
+	public function create($query, array $options = array()) {
+
+	}
+
+	/**
+	 * Read from document.
+	 *
+	 * @param string $query
+	 * @param array $options
+	 * @return object
+	 * @filter
+	 */
+	public function read($query, array $options = array()) {
+		print_r($query);
+		die();
+	}
+
+
+
+	/**
+	 * Update document.
+	 *
+	 * @param string $query
+	 * @param array $options
+	 * @return boolean
+	 * @filter
+	 */
+	public function update($query, array $options = array()) {
+
+	}
+
+	/**
+	 * Delete document.
+	 *
+	 * @param string $query
+	 * @param array $options
+	 * @return boolean
+	 * @filter
+	 */
+	public function delete($query, array $options = array()) {
+
+	}
+
+	/**
+	 * Handle conditions.
+	 *
+	 * @param string $conditions
+	 * @param string $context
+	 * @return array
+	 */
+	public function conditions($conditions, $context) {
+		$path = null;
+		if (isset($conditions['design'])) {
+			$paths = array('design', 'view');
+			foreach ($paths as $element) {
+				if (isset($conditions[$element])) {
+					$path .= "_{$element}/{$conditions[$element]}/";
+					unset($conditions[$element]);
+				}
+			}
+		}
+		if (isset($conditions['id'])) {
+			$path = "{$conditions['id']}";
+			unset($conditions['id']);
+		}
+		if (isset($conditions['path'])) {
+			$path = "{$conditions['path']}";
+			unset($conditions['path']);
+		}
+		return array($path, $conditions);
+	}
+
+	/**
+	 * Fields for query.
+	 *
+	 * @param string $fields
+	 * @param string $context
+	 * @return array
+	 */
+	public function fields($fields, $context) {
+		return $fields ?: array();
+	}
+
+	/**
+	 * Limit for query.
+	 *
+	 * @param string $limit
+	 * @param string $context
+	 * @return array
+	 */
+	public function limit($limit, $context) {
+		return compact('limit') ?: array();
+	}
+
+	/**
+	 * Order for query.
+	 *
+	 * @param string $order
+	 * @param string $context
+	 * @return array
+	 */
+	function order($order, $context) {
+		return (array) $order ?: array();
 	}
 
 }
