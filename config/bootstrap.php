@@ -12,7 +12,8 @@ if (!defined('SOLARIUM_PATH')) define('SOLARIUM_PATH', dirname(__DIR__) . "/libr
 print_r(SOLARIUM_PATH);
 
 Libraries::add("solarium", array(
-    "includePath" => SOLARIUM_PATH . "/library",
+	"prefix" => "Solarium_",
+    "path" => SOLARIUM_PATH . "/library",
     "bootstrap" => "/Solarium/Autoloader.php",
 	"loader" => array("Solarium_Autoloader")
 ));
