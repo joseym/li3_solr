@@ -15,6 +15,7 @@ class Solr extends \lithium\data\source\Http {
 	 * @var object
 	 */
 	public $connection = null;
+	public $query = null;
 
 	/**
 	 * Classes used by `Solr`.
@@ -53,6 +54,7 @@ class Solr extends \lithium\data\source\Http {
 		try {
 
 			$this->connection = new Solarium_Client($this->_config);
+			$this->connection->setAdapter('Solarium_Client_Adapter_Http');
 			$this->_isConnected = true;
 
 		} catch(SolrException $e) {
@@ -72,12 +74,14 @@ class Solr extends \lithium\data\source\Http {
 	 * @return void
 	 */
 	public function __destruct() {
+
 		if (!$this->_isConnected) {
 			return;
 		}
+
 		$this->disconnect();
-		$this->_db = false;
 		unset($this->connection);
+
 	}
 
 	/**
@@ -99,6 +103,7 @@ class Solr extends \lithium\data\source\Http {
 	 * @return void
 	 */
 	public function sources($class = null) {
+
 	}
 
 	/**
@@ -122,10 +127,58 @@ class Solr extends \lithium\data\source\Http {
 	 * @filter
 	 */
 	public function read($query, array $options = array()) {
-		print_r($query);
-		die();
-	}
+		// print_r($options);
+		$_connection = $this->connection;
+		$this->query = $_connection->createSelect();
+		$_query = $this->query;
 
+
+		
+		$defaults = array();
+
+		$options += $defaults;
+
+		$params = compact('query', 'options', '_query', '_connection');
+		$_config = $this->_config;
+
+		$filter = function($self, $params) use ($_config) {
+
+			extract($params, EXTR_OVERWRITE); // `$query`, `$options`, `$_query`, `$_connection`
+
+			$args = $query->export($self);
+
+			// Apply field filter
+			if(!empty($fields)) $args['fields'];
+
+			$data = array();
+
+			$results = $_connection->select($_query);
+
+			// $data['count'] = $data['results']->getNumFound();
+
+			foreach ($results as $document) {
+
+				$result = new \lithium\core\Object;
+
+			    // the documents are also iterable, to get all fields
+			    foreach($document AS $field => $value){
+			    	$result->{$field} = $value;
+			    }
+
+			    $data[] = $result;
+
+			}
+
+			// $stats += array('total_rows' => null, 'offset' => null);
+			// $opts = compact('stats') + array('class' => 'set', 'exists' => true);
+			
+			return $self->item($query->model(), $data);
+
+		};
+
+		return $this->_filter(__METHOD__, $params, $filter);
+
+	}
 
 
 	/**
@@ -160,25 +213,7 @@ class Solr extends \lithium\data\source\Http {
 	 * @return array
 	 */
 	public function conditions($conditions, $context) {
-		$path = null;
-		if (isset($conditions['design'])) {
-			$paths = array('design', 'view');
-			foreach ($paths as $element) {
-				if (isset($conditions[$element])) {
-					$path .= "_{$element}/{$conditions[$element]}/";
-					unset($conditions[$element]);
-				}
-			}
-		}
-		if (isset($conditions['id'])) {
-			$path = "{$conditions['id']}";
-			unset($conditions['id']);
-		}
-		if (isset($conditions['path'])) {
-			$path = "{$conditions['path']}";
-			unset($conditions['path']);
-		}
-		return array($path, $conditions);
+		return array($conditions);
 	}
 
 	/**
@@ -189,7 +224,7 @@ class Solr extends \lithium\data\source\Http {
 	 * @return array
 	 */
 	public function fields($fields, $context) {
-		return $fields ?: array();
+		return $this->query->setFields($fields) ?: array();
 	}
 
 	/**
@@ -200,7 +235,19 @@ class Solr extends \lithium\data\source\Http {
 	 * @return array
 	 */
 	public function limit($limit, $context) {
+		
 		return compact('limit') ?: array();
+
+	}
+
+	/**
+	 * Return a range of results
+	 * @param  array $range
+	 * @param  object $context
+	 * @return array
+	 */
+	public function range(array $range = array(), $context) {
+		return compact('range') ?: array();
 	}
 
 	/**
@@ -212,6 +259,21 @@ class Solr extends \lithium\data\source\Http {
 	 */
 	function order($order, $context) {
 		return (array) $order ?: array();
+	}
+
+	/**
+	 * Facets for query.
+	 *
+	 * @param string $facet
+	 * @param string $context
+	 * @return array
+	 */
+	function facets($facets, $context) {
+		$facetset = $this->query->getFacetSet();
+		foreach($facets as $field => $value){
+			$facetset->createFacetField($field)->setField($value);
+		}
+		return $facetset ?: null;
 	}
 
 }
