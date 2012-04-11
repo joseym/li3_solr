@@ -127,13 +127,13 @@ class Solr extends \lithium\data\source\Http {
 	 * @filter
 	 */
 	public function read($query, array $options = array()) {
-		// print_r($options);
+
+		// localize `$this` variables for use within the filter closure
 		$_connection = $this->connection;
-		$this->query = $_connection->createSelect();
+			$this->query = $_connection->createSelect();
 		$_query = $this->query;
+		$_classes = $this->_classes;
 
-
-		
 		$defaults = array();
 
 		$options += $defaults;
@@ -141,31 +141,58 @@ class Solr extends \lithium\data\source\Http {
 		$params = compact('query', 'options', '_query', '_connection');
 		$_config = $this->_config;
 
-		$filter = function($self, $params) use ($_config) {
+		$filter = function($self, $params) use ($_config, $_classes) {
 
 			extract($params, EXTR_OVERWRITE); // `$query`, `$options`, `$_query`, `$_connection`
 
 			$args = $query->export($self);
 
-			// Apply field filter
-			if(!empty($fields)) $args['fields'];
+			// Apply Query filters
+			if(!empty($args['fields'])) $args['fields'];
+			if(!empty($args['limit'])) $args['limit'];
+			if(!empty($args['range'])) $args['range'];
+			if(!empty($args['facets'])) $args['facets'];
 
 			$data = array();
 
 			$results = $_connection->select($_query);
 
-			// $data['count'] = $data['results']->getNumFound();
+			$data['count'] = $results->getNumFound();
+
+			if($args['facets']['object']) {
+
+				$facets = $results->getFacetSet();
+				
+				$result = new $_classes['entity'];
+
+				foreach ($facets as $key => $filter) {
+
+					// $facet = array();
+					$facet = new $_classes['entity'];
+
+				    foreach($filter AS $value => $count){
+						if($value === "") $value = "_undefined";
+				    	$facet->{$value} = $count;
+				    }
+
+				    $result->{$key} = $facet;
+
+				}
+
+			    $data['facets'] = $result;
+
+			}
 
 			foreach ($results as $document) {
 
-				$result = new \lithium\core\Object;
+				$result = new $_classes['entity'];
 
 			    // the documents are also iterable, to get all fields
 			    foreach($document AS $field => $value){
 			    	$result->{$field} = $value;
 			    }
 
-			    $data[] = $result;
+			    $data['results'][] = $result;
 
 			}
 
@@ -235,8 +262,9 @@ class Solr extends \lithium\data\source\Http {
 	 * @return array
 	 */
 	public function limit($limit, $context) {
-		
-		return compact('limit') ?: array();
+
+		$range = array('start' => 0, 'length' => $limit);
+		return $this->range($range, $context);
 
 	}
 
@@ -247,7 +275,19 @@ class Solr extends \lithium\data\source\Http {
 	 * @return array
 	 */
 	public function range(array $range = array(), $context) {
-		return compact('range') ?: array();
+		
+		$start = $range['start'];
+		$length = isset($range['length']) ? $range['length'] : null;
+
+		// Determine limit length
+		// If both `start` and `end` are passed then we calculate how many
+		// items to walk
+		if(array_key_exists('start', $range) AND array_key_exists('end', $range)){
+			$length = $range['end'] - $range['start'];
+		}
+
+		return $this->query->setStart($start)->setRows($length);
+
 	}
 
 	/**
@@ -269,10 +309,16 @@ class Solr extends \lithium\data\source\Http {
 	 * @return array
 	 */
 	function facets($facets, $context) {
-		$facetset = $this->query->getFacetSet();
-		foreach($facets as $field => $value){
-			$facetset->createFacetField($field)->setField($value);
+
+		// remember aliases and fields for faceting
+		$facetset['fields'] = $facets;
+		// pass faceting off to solarium
+		$facetset['object'] = $this->query->getFacetSet();
+
+		foreach($facetset['fields'] as $field => $value){
+			$facetset['object']->createFacetField($field)->setField($value);
 		}
+
 		return $facetset ?: null;
 	}
 
