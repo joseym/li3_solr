@@ -7,6 +7,8 @@ use lithium\core\NetworkException;
 use lithium\util\String;
 use lithium\util\Inflector;
 use Solarium_Client;
+use li3_solr\vendors\QueryBuilder\Querystring;
+use li3_solr\vendors\QueryBuilder\Field;
 
 class Solr extends \lithium\data\source\Http {
 
@@ -16,7 +18,7 @@ class Solr extends \lithium\data\source\Http {
 	 */
 	public $connection = null;
 	public $query = null;
-	public $querySections = array();
+	public $queryString = null;
 
 	/**
 	 * Classes used by `Solr`.
@@ -63,6 +65,8 @@ class Solr extends \lithium\data\source\Http {
 			throw new NetworkException('Could not connect to the database.', 503, $e);
 
 		}
+
+		$this->queryString = new Querystring();
 
 		return $this->_isConnected;
 
@@ -129,17 +133,27 @@ class Solr extends \lithium\data\source\Http {
 	 */
 	public function read($query, array $options = array()) {
 
+
+		$test_query = array(
+				'specialist_search_phonetic' => 'Orthopaedic',
+				'state_abbr' => 'OK',
+				// 'first_name' => array('NOT' => array('todd', 'james')),
+				'OR' => array('first_name' => array('Jim', 'Frank'))
+			);
+
 		// localize `$this` variables for use within the filter closure
 		$_connection = $this->connection;
 			$this->query = $_connection->createSelect();
 		$_query = $this->query;
 		$_classes = $this->_classes;
 
+		$_queryString = $this->_buildQuery($test_query);
+
 		$defaults = array();
 
 		$options += $defaults;
 
-		$params = compact('query', 'options', '_query', '_connection');
+		$params = compact('query', 'options', '_query', '_connection', '_queryString');
 		$_config = $this->_config;
 
 		$filter = function($self, $params) use ($_config, $_classes) {
@@ -155,7 +169,9 @@ class Solr extends \lithium\data\source\Http {
 			if(!empty($args['range'])) 		$args['range'];
 			if(!empty($args['facets'])) 	$args['facets'];
 			if(!empty($args['query']))  	$_query->setQuery($args['query']);
-	
+			
+			echo($_queryString);
+
 			$data = array();
 
 			$results = $_connection->select($_query);
@@ -337,6 +353,53 @@ class Solr extends \lithium\data\source\Http {
 	    }
 	    return implode( $separator, $string );
 	   
+	}
+
+	private function _buildQuery(array $conditions = array()){
+
+		$is_assoc = function($array) {
+			return (bool)count(array_filter(array_keys($array), 'is_string'));
+		};
+
+		foreach($conditions as $field => $entry){
+
+			if(is_array($entry)){
+
+				$subQuery = new Querystring;
+
+				$key = array_keys($entry); $key = $key[0];
+
+				if($field == 'AND' OR $field == 'OR'){
+					$subQuery->setFieldSeparator($field);
+				}
+
+				foreach($entry as $subField => $subEntry){
+
+					if(!$is_assoc($subEntry)){
+						
+						foreach($subEntry as $field){
+							$subQuery->addField(new Field($subField, $field));
+						}
+
+					}
+
+					// $subQuery->addField(new Field($subField, $subEntry));
+
+				}
+
+				$this->queryString->addSubQuery($subQuery, $key);
+
+			} else {
+
+				$this->queryString->addField(new Field($field, $entry));
+
+			}
+
+		}
+
+		// echo $this->queryString;
+
+		return $this->queryString;
 	}
 
 

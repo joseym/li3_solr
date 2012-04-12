@@ -19,3 +19,4 @@ Libraries::add("solarium", array(
 	"bootstrap" => "Autoloader.php",
 	"loader" => array("Solarium_Autoloader", "load")
 ));
+
