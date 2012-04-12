@@ -16,6 +16,7 @@ class Solr extends \lithium\data\source\Http {
 	 */
 	public $connection = null;
 	public $query = null;
+	public $querySections = array();
 
 	/**
 	 * Classes used by `Solr`.
@@ -148,18 +149,20 @@ class Solr extends \lithium\data\source\Http {
 			$args = $query->export($self);
 
 			// Apply Query filters
-			if(!empty($args['fields'])) $args['fields'];
-			if(!empty($args['limit'])) $args['limit'];
-			if(!empty($args['range'])) $args['range'];
-			if(!empty($args['facets'])) $args['facets'];
-
+			// Only accepted if `query` isn't passed to find condition
+			if(!empty($args['fields'])) 	$args['fields'];
+			if(!empty($args['limit'])) 		$args['limit'];
+			if(!empty($args['range'])) 		$args['range'];
+			if(!empty($args['facets'])) 	$args['facets'];
+			if(!empty($args['query']))  	$_query->setQuery($args['query']);
+	
 			$data = array();
 
 			$results = $_connection->select($_query);
 
 			$data['count'] = $results->getNumFound();
 
-			if($args['facets']['object']) {
+			if( isset($args['facets']) AND $args['facets']['object'] ) {
 
 				$facets = $results->getFacetSet();
 				
@@ -233,17 +236,6 @@ class Solr extends \lithium\data\source\Http {
 	}
 
 	/**
-	 * Handle conditions.
-	 *
-	 * @param string $conditions
-	 * @param string $context
-	 * @return array
-	 */
-	public function conditions($conditions, $context) {
-		return array($conditions);
-	}
-
-	/**
 	 * Fields for query.
 	 *
 	 * @param string $fields
@@ -302,6 +294,17 @@ class Solr extends \lithium\data\source\Http {
 	}
 
 	/**
+	 * Manual Query.
+	 *
+	 * @param string $query
+	 * @param string $context
+	 * @return array
+	 */
+	function query($query, $context) {
+		return $query ?: null;
+	}
+
+	/**
 	 * Facets for query.
 	 *
 	 * @param string $facet
@@ -321,6 +324,21 @@ class Solr extends \lithium\data\source\Http {
 
 		return $facetset ?: null;
 	}
+
+	private function array_implode( $glue, $separator, $array ) {
+
+	    if ( ! is_array( $array ) ) return $array;
+	    $string = array();
+	    foreach ( $array as $key => $val ) {
+	        if ( is_array( $val ) )
+	            $val = implode( ',', $val );
+	        $string[] = "{$key}{$glue}{$val}";
+	       
+	    }
+	    return implode( $separator, $string );
+	   
+	}
+
 
 }
 
