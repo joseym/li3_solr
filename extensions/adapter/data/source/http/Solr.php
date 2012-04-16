@@ -133,27 +133,17 @@ class Solr extends \lithium\data\source\Http {
 	 */
 	public function read($query, array $options = array()) {
 
-
-		$test_query = array(
-				'specialist_search_phonetic' => 'Orthopaedic',
-				'state_abbr' => 'OK',
-				// 'first_name' => array('NOT' => array('todd', 'james')),
-				'OR' => array('first_name' => array('Jim', 'Frank'))
-			);
-
 		// localize `$this` variables for use within the filter closure
 		$_connection = $this->connection;
 			$this->query = $_connection->createSelect();
 		$_query = $this->query;
 		$_classes = $this->_classes;
 
-		$_queryString = $this->_buildQuery($test_query);
-
 		$defaults = array();
 
 		$options += $defaults;
 
-		$params = compact('query', 'options', '_query', '_connection', '_queryString');
+		$params = compact('query', 'options', '_query', '_connection');
 		$_config = $this->_config;
 
 		$filter = function($self, $params) use ($_config, $_classes) {
@@ -169,8 +159,10 @@ class Solr extends \lithium\data\source\Http {
 			if(!empty($args['range'])) 		$args['range'];
 			if(!empty($args['facets'])) 	$args['facets'];
 			if(!empty($args['query']))  	$_query->setQuery($args['query']);
+			if(!isset($args['query']) 
+				AND !empty($args['conditions'])) $_query->setQuery($args['conditions']);
 			
-			echo($_queryString);
+			echo($args['conditions']);
 
 			$data = array();
 
@@ -341,6 +333,10 @@ class Solr extends \lithium\data\source\Http {
 		return $facetset ?: null;
 	}
 
+	function conditions($conditions, $context){
+		return $this->_buildQuery($conditions) ?: null;
+	}
+
 	private function array_implode( $glue, $separator, $array ) {
 
 	    if ( ! is_array( $array ) ) return $array;
@@ -355,43 +351,71 @@ class Solr extends \lithium\data\source\Http {
 	   
 	}
 
-	private function _buildQuery(array $conditions = array()){
+	/**
+	 * Recursive function used to build smarty solr queries from an array of conditions
+	 * - does not currently work, use `query` option with standard solr query formatting
+	 * @param  array  $conditions
+	 * @param  array  $options    could include parent array key, current key and the querybuilding object
+	 * @return string             query string
+	 * @see li3_solr\vendors\QueryBuilder\Querystring;
+	 * @see li3_solr\vendors\QueryBuilder\Field;
+	 */
+	private function _buildQuery(array $conditions = array(), array $options = array()){
+
+		$defaults = array(
+			'queryObject' 	=> $this->queryString,
+			'parent' 		=> array(),
+			'key' 			=> null
+		);
+
+		$options += $defaults;
+
+		$masterObject = $options['queryObject'] === $this->queryString;
 
 		$is_assoc = function($array) {
-			return (bool)count(array_filter(array_keys($array), 'is_string'));
+			return (bool) count(array_filter(array_keys($array), 'is_string'));
 		};
+
+		// print_r($options['parent']);
 
 		foreach($conditions as $field => $entry){
 
+			if($options['key'] === null) $options['key'] = $field;
+
 			if(is_array($entry)){
 
+				$subParams = array();
+
 				$subQuery = new Querystring;
+				$subParams['queryObject'] = $subQuery;
+				// $subParams = array('queryObject' => $this->queryString);
 
 				$key = array_keys($entry); $key = $key[0];
 
+				if(!$is_assoc($entry)){
+					$subParams['key'] = $field;
+				}
+
 				if($field == 'AND' OR $field == 'OR'){
+
+					// print_r($field); print_r($entry);
+
+					$options['parent'] = $field;
+					$subParams += $options;
 					$subQuery->setFieldSeparator($field);
-				}
-
-				foreach($entry as $subField => $subEntry){
-
-					if(!$is_assoc($subEntry)){
-						
-						foreach($subEntry as $field){
-							$subQuery->addField(new Field($subField, $field));
-						}
-
-					}
-
-					// $subQuery->addField(new Field($subField, $subEntry));
 
 				}
+				
+				$options['queryObject']->setFieldSeparator($field);
 
-				$this->queryString->addSubQuery($subQuery, $key);
+				$this->_buildQuery($entry, $subParams);
+
+				$options['queryObject']->addSubQuery($subQuery, $key);
 
 			} else {
 
-				$this->queryString->addField(new Field($field, $entry));
+				// $this->queryString->addField(new Field($options['key'], $entry));
+				$options['queryObject']->addField(new Field($options['key'], $entry));
 
 			}
 
