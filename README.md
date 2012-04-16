@@ -101,8 +101,8 @@ This dataservice does not yet support `creates`, `updates` or `deletes`. These w
 
 ## Call for help
 
+This project is still in its infancy. I am not a solr expert. As I mentioned earlier, this project was spawned based on a need from my employer and I had no solr experiance beforehand.
+
 If you feel this is a project worth your effort I welcome and request your help. 
 
 Feel free to fork and send pull requests!
-
-This project is still in its infancy. I am not a solr expert. As I mentioned earlier, this project was spawned based on a need from my employer and I had no solr experiance beforehand.
