@@ -11,7 +11,7 @@ My goal was to make using Solr feel exactly the same as using any other data ser
 
 ## Connect To Solr
 
-~~~php
+~~~ php
 Connections::add('search', array(
 
 	'type' => 'http',
@@ -26,7 +26,7 @@ Connections::add('search', array(
 
 In your model or controller create a `Model::find`
 
-~~~php
+~~~ php
 $entertainment = Product::find('all', array(
 
 	'query' => "manufacturer:Sony AND (product:TV OR product:MP3 Player)",
@@ -52,7 +52,7 @@ Along with `query`, `facets` and `fields` you can also pass in `limit`. (`"limit
 
 Like `limit` you can also pass in a range:
 
-~~~php
+~~~ php
 'range' => array(
 	'start' => 6,
 	'end' => 17,
@@ -63,7 +63,7 @@ This will return 11 results, starting at row 6 and ending at 17.
 
 You can also tell the query where to start and give it a number of rows to walk:
 
-~~~php
+~~~ php
 'range' => array(
         'start' => 6,
 	'length' => 11, // tell the request to only get 11 rows
@@ -80,7 +80,7 @@ My goal is to be able to pass the request a nicely formatted array of conditions
 
 Example of what I'd like (would result in the same query as the above example):
 
-~~~php
+~~~ php
 'conditions' => array(
 	'manufacturer' => 'Sony',
 	'OR' => array(
@@ -95,12 +95,14 @@ This dataservice does not yet support `creates`, `updates` or `deletes`. These w
 
 ## Credits
 
-[Lithium PHP](http://lithify.me)
-Solr PHP help by the Awesome [Solarium](www.solarium-project.org) PHP Library.
-Solr Queries (to be used with query builder) from the handy PHP class [SolrQueryBuilder](https://bitbucket.org/wneeds/solrquerybuilder)
+- [Lithium PHP](http://lithify.me)
+- Solr PHP help by the Awesome [Solarium](www.solarium-project.org) PHP Library.
+- Solr Queries (to be used with query builder) from the handy PHP class [SolrQueryBuilder](https://bitbucket.org/wneeds/solrquerybuilder)
 
 ## Call for help
 
 If you feel this is a project worth your effort I welcome and request your help. 
+
 Feel free to fork and send pull requests!
+
 This project is still in its infancy. I am not a solr expert. As I mentioned earlier, this project was spawned based on a need from my employer and I had no solr experiance beforehand.
