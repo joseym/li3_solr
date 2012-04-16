@@ -65,7 +65,7 @@ You can also tell the query where to start and give it a number of rows to walk:
 
 ~~~ php
 'range' => array(
-        'start' => 6,
+	'start' => 6,
 	'length' => 11, // tell the request to only get 11 rows
 )
 ~~~
